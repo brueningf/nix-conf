@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Start, stop, and restart the declared AeroSpace session."""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+import time
+import tomllib
+from pathlib import Path
+
+CONFIG = Path.home() / ".config/aerospace/session.toml"
+AEROSPACE = "aerospace"
+
+
+def load_apps() -> list[dict]:
+    with CONFIG.open("rb") as fh:
+        data = tomllib.load(fh)
+    apps = data.get("app", [])
+    if not apps:
+        raise SystemExit(f"no [[app]] entries in {CONFIG}")
+    return apps
+
+
+def run(cmd: list[str], check: bool = False) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, check=check, capture_output=True, text=True)
+
+
+def running_bundle_ids() -> set[str]:
+    proc = run([AEROSPACE, "list-apps"])
+    if proc.returncode != 0:
+        raise SystemExit(proc.stderr.strip() or "aerospace list-apps failed")
+    ids: set[str] = set()
+    for line in proc.stdout.splitlines():
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) >= 2:
+            ids.add(parts[1])
+    return ids
+
+
+def list_windows() -> list[dict]:
+    proc = run(
+        [
+            AEROSPACE,
+            "list-windows",
+            "--all",
+            "--format",
+            "%{window-id}|%{app-bundle-id}|%{window-title}|%{workspace}",
+        ]
+    )
+    if proc.returncode != 0:
+        raise SystemExit(proc.stderr.strip() or "aerospace list-windows failed")
+
+    windows = []
+    for line in proc.stdout.splitlines():
+        if not line.strip():
+            continue
+        window_id, bundle_id, title, workspace = line.split("|", 3)
+        windows.append(
+            {
+                "id": window_id,
+                "bundle_id": bundle_id,
+                "title": title,
+                "workspace": workspace,
+            }
+        )
+    return windows
+
+
+def focused_workspace() -> str:
+    proc = run([AEROSPACE, "list-workspaces", "--focused"])
+    if proc.returncode != 0:
+        raise SystemExit(proc.stderr.strip() or "could not read focused workspace")
+    name = proc.stdout.strip()
+    if not name:
+        raise SystemExit("no focused workspace")
+    return name.splitlines()[0]
+
+
+def matching_windows(app: dict, windows: list[dict]) -> list[dict]:
+    matches = [w for w in windows if w["bundle_id"] == app["bundle_id"]]
+    title = app.get("window_title")
+    if title:
+        matches = [w for w in matches if w["title"] == title]
+    return matches
+
+
+def selected_apps(apps: list[dict], workspace: str | None) -> list[dict]:
+    if workspace is None:
+        return apps
+    chosen = [app for app in apps if app["workspace"] == workspace]
+    if not chosen:
+        raise SystemExit(f"no session apps for workspace {workspace!r}")
+    return chosen
+
+
+def start_apps(apps: list[dict]) -> None:
+    windows = list_windows()
+    running = running_bundle_ids()
+    for app in apps:
+        if matching_windows(app, windows):
+            print(f"skip {app['id']}: already running")
+            continue
+        if not app.get("window_title") and app["bundle_id"] in running:
+            print(f"skip {app['id']}: app already running")
+            continue
+        print(f"start {app['id']}")
+        subprocess.Popen(
+            ["/bin/bash", "-lc", app["launch"]],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+
+def close_windows(app: dict, windows: list[dict]) -> None:
+    for window in matching_windows(app, windows):
+        print(f"close {app['id']} window {window['id']}")
+        run([AEROSPACE, "close", "--window-id", window["id"]])
+
+
+def quit_app(app: dict) -> None:
+    print(f"quit {app['id']}")
+    run(["osascript", "-e", f'tell application id "{app["bundle_id"]}" to quit'])
+
+
+def stop_apps(apps: list[dict]) -> None:
+    windows = list_windows()
+    seen_quit: set[str] = set()
+    for app in apps:
+        if app.get("close_windows_only"):
+            close_windows(app, windows)
+            continue
+        bundle = app["bundle_id"]
+        if bundle in seen_quit:
+            continue
+        seen_quit.add(bundle)
+        quit_app(app)
+
+
+def restart_apps(apps: list[dict]) -> None:
+    stop_apps(apps)
+    time.sleep(1.5)
+    start_apps(apps)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=["start", "stop", "restart"])
+    parser.add_argument("workspace", nargs="?", help="limit to one workspace")
+    parser.add_argument(
+        "--current-workspace",
+        action="store_true",
+        help="limit to the focused AeroSpace workspace",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    workspace = args.workspace
+    if args.current_workspace:
+        if workspace:
+            raise SystemExit("pass a workspace name or --current-workspace, not both")
+        workspace = focused_workspace()
+
+    apps = selected_apps(load_apps(), workspace)
+    if args.action == "start":
+        start_apps(apps)
+    elif args.action == "stop":
+        stop_apps(apps)
+    else:
+        restart_apps(apps)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(130)

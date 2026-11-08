@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Follow a container's logs, reconnecting across restarts instead of exiting.
+set -uo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/docker-log.sh"
+
+container="${1:?container name required}"
+tail_lines="${2:-100}"
+
+while true; do
+  monitor_follow_once "$container" "$tail_lines"
+  sleep 1
+done

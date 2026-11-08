@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# One line per audit event: time, event, actor, team, case.
+# Merges app_event lines from web + workers container logs.
+set -uo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/docker-log.sh"
+
+web="${AUDIT_CONTAINER:-kreditdata-laravel-uniify-app-web-1}"
+workers="${AUDIT_WORKERS_CONTAINER:-kreditdata-laravel-uniify-app-workers-1}"
+tail_lines="${1:-1000}"
+
+trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
+
+# Reads raw lines so malformed or non-JSON output is skipped rather than fatal.
+render() {
+  jq -rR --unbuffered '
+    def pad($n): tostring | . + (" " * (if ($n - length) < 1 then 1 else ($n - length) end));
+
+    def json_slice:
+      (index("{")) as $start
+      | (rindex("}")) as $end
+      | if $start == null or $end == null or $end < $start
+        then empty
+        else .[$start:$end + 1]
+        end;
+
+    json_slice
+    | (fromjson? // empty)
+    | select(type == "object" and .message == "app_event")
+    | (if (.context.scope | type) == "object" then .context.scope else {} end) as $scope
+    | (
+        (.context.actor // {})
+        | if type == "object" then (keys | first // "-") else tostring end
+      ) as $actor
+    | ((.datetime // "") | .[11:19])
+      + "  " + (.context.event_name // "-" | pad(32))
+      + ($actor | pad(14))
+      + ($scope.team_code // "-" | pad(20))
+      + ($scope.entry_case_code // "-")
+  '
+}
+
+# Each container gets its own pipeline so a single writer owns each line;
+# concurrent writers into one pipe can tear long log lines apart.
+# The loop also covers a renderer dying, not just a container restart.
+stream() {
+  while true; do
+    monitor_follow_once "$1" "$tail_lines" | render
+    sleep 1
+  done
+}
+
+stream "$web" &
+stream "$workers" &
+wait

@@ -1,0 +1,3 @@
+[db]
+kreditdata-dev = { driver = "postgres", host = "localhost", port = 5432, database = "uniify_dev", username = "uniify", default = true }
+kreditdata-test = { driver = "postgres", host = "localhost", port = 5432, database = "uniify_test", username = "uniify" }
