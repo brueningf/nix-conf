@@ -1,0 +1,19 @@
+# /Users/brueningf/.config/tmuxinator/monitor.yml
+
+name: monitor
+root: ~/code/kreditdata-laravel
+
+windows:
+  - logs:
+      layout: even-vertical
+      panes:
+        - ~/.config/tmuxinator/bin/docker-follow kreditdata-laravel-uniify-app-web-1
+        - ~/.config/tmuxinator/bin/docker-follow kreditdata-laravel-uniify-app-workers-1
+  - workers:
+      panes:
+        - ~/.config/tmuxinator/bin/docker-follow kreditdata-laravel-uniify-frontend-1
+  - audit:
+      layout: main-horizontal
+      panes:
+        - ~/.config/tmuxinator/bin/audit-overview
+        - ~/.config/tmuxinator/bin/audit-detail

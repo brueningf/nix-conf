@@ -1,0 +1,67 @@
+# Declarative AeroSpace session. Placement still comes from on-window-detected.
+
+[[app]]
+id = "cursor"
+workspace = "Work"
+bundle_id = "com.todesktop.230313mzl4w4u92"
+launch = 'open -a Cursor'
+
+[[app]]
+id = "brave"
+workspace = "Web"
+bundle_id = "com.brave.Browser"
+launch = 'open -a "Brave Browser"'
+
+[[app]]
+id = "sys-terminal"
+workspace = "Sys"
+bundle_id = "org.alacritty"
+window_title = "SysTerminal"
+close_windows_only = true
+launch = '/Applications/Alacritty.app/Contents/MacOS/alacritty --title SysTerminal --option window.dynamic_title=false -e tmux new-session -A -s main'
+
+[[app]]
+id = "linear"
+workspace = "Proc"
+bundle_id = "com.linear"
+launch = 'open -a Linear'
+
+[[app]]
+id = "slack"
+workspace = "Chat"
+bundle_id = "com.tinyspeck.slackmacgap"
+launch = 'open -a Slack'
+
+[[app]]
+id = "dbeaver"
+workspace = "Net"
+bundle_id = "org.jkiss.dbeaver.core.product"
+launch = 'open -a DBeaver'
+
+[[app]]
+id = "postman"
+workspace = "Net"
+bundle_id = "com.postmanlabs.mac"
+launch = 'open -a Postman'
+
+[[app]]
+id = "db-terminal"
+workspace = "Net"
+bundle_id = "org.alacritty"
+window_title = "DbTerminal"
+close_windows_only = true
+launch = '/Applications/Alacritty.app/Contents/MacOS/alacritty --title DbTerminal --option window.dynamic_title=false -e /bin/bash -lc "export RAINFROG_CONFIG=\"$HOME/.config/rainfrog\"; exec tmux new-session -A -s db rainfrog"'
+
+[[app]]
+id = "spotify"
+workspace = "Music"
+bundle_id = "com.spotify.client"
+launch = 'open -a Spotify'
+
+[[app]]
+id = "monitor-terminal"
+workspace = "Monitor"
+bundle_id = "org.alacritty"
+window_title = "MonitorTerminal"
+close_windows_only = true
+launch = '/Applications/Alacritty.app/Contents/MacOS/alacritty --title MonitorTerminal --option window.dynamic_title=false -e tmuxinator start monitor'

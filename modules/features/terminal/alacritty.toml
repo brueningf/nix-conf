@@ -1,0 +1,22 @@
+[env]
+EDITOR = "nvim"
+VISUAL = "nvim"
+RAINFROG_CONFIG = "/Users/brueningf/.config/rainfrog"
+
+[window]
+decorations = "None" # Completely removes the macOS top title bar
+
+[font]
+size = 13.0
+
+[font.normal]
+family = "JetBrains Mono"
+style = "Regular"
+
+[font.bold]
+family = "JetBrains Mono"
+style = "Bold"
+
+[font.italic]
+family = "JetBrains Mono"
+style = "Italic"
